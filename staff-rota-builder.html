@@ -559,6 +559,7 @@
             <button class="tab" onclick="switchTab('staff')">Staff</button>
             <button class="tab" onclick="switchTab('forecast')">Forecast</button>
             <button class="tab" onclick="switchTab('summary')">Summary</button>
+            <button class="tab" onclick="switchTab('year')" style="background: #fff3e0; color: #e65100;">Year Overview</button>
         </div>
 
         <!-- Rota Tab -->
@@ -829,6 +830,69 @@
                 </table>
             </div>
         </div>
+
+        <!-- Year Overview Tab -->
+        <div id="year-tab" class="tab-content">
+            <div class="card">
+                <h2>2026 Year Overview</h2>
+                <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+                    <button class="btn btn-primary" onclick="saveCurrentWeek()">Save This Week</button>
+                    <button class="btn btn-secondary" onclick="exportYearToCSV()">Export Year to CSV</button>
+                </div>
+            </div>
+
+            <!-- Year-to-Date Summary -->
+            <div class="summary-grid" style="margin-bottom: 24px;">
+                <div class="summary-card" style="background: #e3f2fd;">
+                    <h3>Total Weeks</h3>
+                    <div class="amount" id="ytd-weeks" style="color: #1565c0;">0</div>
+                    <div class="detail">camps run in 2026</div>
+                </div>
+                <div class="summary-card" style="background: #e8f5e9;">
+                    <h3>Total Revenue</h3>
+                    <div class="amount" id="ytd-revenue">£0</div>
+                    <div class="detail" id="ytd-children">0 children served</div>
+                </div>
+                <div class="summary-card" style="background: #fff3e0;">
+                    <h3>Total Wages Paid</h3>
+                    <div class="amount" id="ytd-wages" style="color: #e65100;">£0</div>
+                    <div class="detail" id="ytd-shifts">0 shifts worked</div>
+                </div>
+                <div class="summary-card" style="background: #f3e5f5;">
+                    <h3>Total Profit</h3>
+                    <div class="amount" id="ytd-profit" style="color: #7b1fa2;">£0</div>
+                    <div class="detail" id="ytd-margin">0% avg margin</div>
+                </div>
+            </div>
+
+            <!-- Saved Weeks List -->
+            <div class="card">
+                <h2>Saved Camp Weeks</h2>
+                <div id="saved-weeks-list">
+                    <p style="color: #888; text-align: center; padding: 40px;">
+                        No weeks saved yet. Use "Save This Week" to add the current week to your year records.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Staff Year Summary -->
+            <div class="card">
+                <h2>Staff Earnings (Year-to-Date)</h2>
+                <table class="earnings-table">
+                    <thead>
+                        <tr>
+                            <th>Staff Member</th>
+                            <th>Weeks Worked</th>
+                            <th>Total Shifts</th>
+                            <th>Total Earnings</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ytd-staff-earnings">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <!-- Add/Edit Staff Modal -->
@@ -1013,6 +1077,11 @@
             // Recalculate when switching to summary
             if (tabName === 'summary') {
                 calculateAll();
+            }
+
+            // Render year overview when switching to year tab
+            if (tabName === 'year') {
+                renderYearOverview();
             }
         }
 
@@ -1515,6 +1584,316 @@
             renderRotaTable();
             renderForecastInputs();
             calculateAll();
+        }
+
+        // ============ YEAR MANAGEMENT ============
+
+        function getSavedWeeks() {
+            const weeks = [];
+            const year = '2026'; // Current year
+
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('evergreen_week_')) {
+                    try {
+                        const data = JSON.parse(localStorage.getItem(key));
+                        if (data.weekStart && data.weekStart.startsWith(year)) {
+                            weeks.push(data);
+                        }
+                    } catch (e) {
+                        console.error('Error parsing week data:', key, e);
+                    }
+                }
+            }
+
+            // Sort by date
+            weeks.sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart));
+            return weeks;
+        }
+
+        function saveCurrentWeek() {
+            // Calculate this week's totals
+            let weeklyWages = 0;
+            let weeklyRevenue = 0;
+            let totalChildren = 0;
+            let totalShifts = 0;
+            const staffEarnings = {};
+
+            DAYS.forEach(day => {
+                state.staff.forEach(staff => {
+                    const shift = state.rota[staff.id]?.[day] || 'off';
+                    if (shift !== 'off') {
+                        const cost = calculateShiftCost(staff, shift);
+                        weeklyWages += cost;
+                        totalShifts++;
+
+                        if (!staffEarnings[staff.id]) {
+                            staffEarnings[staff.id] = { name: staff.name, earnings: 0, shifts: 0 };
+                        }
+                        staffEarnings[staff.id].earnings += cost;
+                        staffEarnings[staff.id].shifts++;
+                    }
+                });
+
+                const children = state.forecast[day].children || 0;
+                const earlyChildren = state.forecast[day].early || 0;
+                const lateChildren = state.forecast[day].late || 0;
+
+                weeklyRevenue += (children * state.rates.daily) +
+                                 (earlyChildren * state.rates.early) +
+                                 (lateChildren * state.rates.late);
+                totalChildren += children;
+            });
+
+            // Calculate Stripe fees
+            const stripePercent = state.costs.stripePercent / 100;
+            const stripeFees = (weeklyRevenue * stripePercent) + (state.costs.transactions * state.costs.stripeFixed);
+            const fixedCosts = state.costs.fixedWeekly;
+            const totalCosts = weeklyWages + stripeFees + fixedCosts;
+            const netProfit = weeklyRevenue - totalCosts;
+
+            const weekData = {
+                weekStart: state.weekStart,
+                savedAt: new Date().toISOString(),
+                summary: {
+                    revenue: weeklyRevenue,
+                    wages: weeklyWages,
+                    stripeFees: stripeFees,
+                    fixedCosts: fixedCosts,
+                    totalCosts: totalCosts,
+                    netProfit: netProfit,
+                    children: totalChildren,
+                    shifts: totalShifts
+                },
+                staffEarnings: staffEarnings,
+                rota: JSON.parse(JSON.stringify(state.rota)),
+                forecast: JSON.parse(JSON.stringify(state.forecast)),
+                rates: JSON.parse(JSON.stringify(state.rates)),
+                costs: JSON.parse(JSON.stringify(state.costs))
+            };
+
+            const key = `evergreen_week_${state.weekStart}`;
+            localStorage.setItem(key, JSON.stringify(weekData));
+
+            alert(`Week of ${state.weekStart} saved to year records!`);
+            renderYearOverview();
+        }
+
+        function deleteWeek(weekStart) {
+            if (!confirm(`Delete saved data for week of ${weekStart}?`)) return;
+
+            const key = `evergreen_week_${weekStart}`;
+            localStorage.removeItem(key);
+            renderYearOverview();
+        }
+
+        function loadWeek(weekStart) {
+            const key = `evergreen_week_${weekStart}`;
+            const saved = localStorage.getItem(key);
+
+            if (saved) {
+                const data = JSON.parse(saved);
+                state.weekStart = data.weekStart;
+                state.rota = data.rota || {};
+                state.forecast = data.forecast || state.forecast;
+                state.rates = data.rates || state.rates;
+                state.costs = data.costs || state.costs;
+
+                document.getElementById('week-start').value = state.weekStart;
+                updateWeekDisplay();
+                saveData();
+                renderRotaTable();
+                renderForecastInputs();
+                calculateAll();
+
+                switchTab('rota');
+            }
+        }
+
+        function renderYearOverview() {
+            const weeks = getSavedWeeks();
+
+            // Calculate YTD totals
+            let ytdRevenue = 0;
+            let ytdWages = 0;
+            let ytdProfit = 0;
+            let ytdChildren = 0;
+            let ytdShifts = 0;
+            const staffYTD = {};
+
+            weeks.forEach(week => {
+                ytdRevenue += week.summary.revenue || 0;
+                ytdWages += week.summary.wages || 0;
+                ytdProfit += week.summary.netProfit || 0;
+                ytdChildren += week.summary.children || 0;
+                ytdShifts += week.summary.shifts || 0;
+
+                // Aggregate staff earnings
+                if (week.staffEarnings) {
+                    Object.entries(week.staffEarnings).forEach(([staffId, data]) => {
+                        if (!staffYTD[staffId]) {
+                            staffYTD[staffId] = { name: data.name, earnings: 0, shifts: 0, weeks: 0 };
+                        }
+                        staffYTD[staffId].earnings += data.earnings || 0;
+                        staffYTD[staffId].shifts += data.shifts || 0;
+                        staffYTD[staffId].weeks++;
+                    });
+                }
+            });
+
+            const avgMargin = ytdRevenue > 0 ? (ytdProfit / ytdRevenue * 100) : 0;
+
+            // Update YTD summary cards
+            document.getElementById('ytd-weeks').textContent = weeks.length;
+            document.getElementById('ytd-revenue').textContent = `£${ytdRevenue.toFixed(0)}`;
+            document.getElementById('ytd-children').textContent = `${ytdChildren} children served`;
+            document.getElementById('ytd-wages').textContent = `£${ytdWages.toFixed(0)}`;
+            document.getElementById('ytd-shifts').textContent = `${ytdShifts} shifts worked`;
+            document.getElementById('ytd-profit').textContent = `£${ytdProfit.toFixed(0)}`;
+            document.getElementById('ytd-profit').style.color = ytdProfit >= 0 ? '#7b1fa2' : '#c62828';
+            document.getElementById('ytd-margin').textContent = `${avgMargin.toFixed(1)}% avg margin`;
+
+            // Render saved weeks list
+            const weeksList = document.getElementById('saved-weeks-list');
+            if (weeks.length === 0) {
+                weeksList.innerHTML = '<p style="color: #888; text-align: center; padding: 40px;">No weeks saved yet. Use "Save This Week" to add the current week to your year records.</p>';
+            } else {
+                weeksList.innerHTML = `
+                    <table class="earnings-table">
+                        <thead>
+                            <tr>
+                                <th>Week</th>
+                                <th>Children</th>
+                                <th>Revenue</th>
+                                <th>Wages</th>
+                                <th>Profit</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${weeks.map(week => {
+                                const weekDate = new Date(week.weekStart);
+                                const weekEnd = new Date(weekDate);
+                                weekEnd.setDate(weekDate.getDate() + 4);
+                                const dateStr = weekDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) +
+                                               ' - ' + weekEnd.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+
+                                return `
+                                    <tr>
+                                        <td><strong>${dateStr}</strong></td>
+                                        <td>${week.summary.children || 0}</td>
+                                        <td class="amount">£${(week.summary.revenue || 0).toFixed(0)}</td>
+                                        <td style="color: #e65100;">£${(week.summary.wages || 0).toFixed(0)}</td>
+                                        <td class="amount" style="color: ${(week.summary.netProfit || 0) >= 0 ? '#2d5a27' : '#c62828'}">
+                                            £${(week.summary.netProfit || 0).toFixed(0)}
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-secondary btn-small" onclick="loadWeek('${week.weekStart}')">Load</button>
+                                            <button class="btn btn-danger btn-small" onclick="deleteWeek('${week.weekStart}')">Delete</button>
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                            <tr class="total-row">
+                                <td><strong>YEAR TOTAL</strong></td>
+                                <td><strong>${ytdChildren}</strong></td>
+                                <td class="amount"><strong>£${ytdRevenue.toFixed(0)}</strong></td>
+                                <td style="color: #e65100;"><strong>£${ytdWages.toFixed(0)}</strong></td>
+                                <td class="amount" style="color: ${ytdProfit >= 0 ? '#2d5a27' : '#c62828'}">
+                                    <strong>£${ytdProfit.toFixed(0)}</strong>
+                                </td>
+                                <td></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            // Render staff YTD earnings
+            const staffTable = document.getElementById('ytd-staff-earnings');
+            const staffList = Object.values(staffYTD).sort((a, b) => b.earnings - a.earnings);
+
+            if (staffList.length === 0) {
+                staffTable.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #888; padding: 20px;">No staff data yet</td></tr>';
+            } else {
+                staffTable.innerHTML = staffList.map(s => `
+                    <tr>
+                        <td>${s.name}</td>
+                        <td>${s.weeks}</td>
+                        <td>${s.shifts}</td>
+                        <td class="amount">£${s.earnings.toFixed(2)}</td>
+                    </tr>
+                `).join('') + `
+                    <tr class="total-row">
+                        <td><strong>TOTAL</strong></td>
+                        <td></td>
+                        <td><strong>${ytdShifts}</strong></td>
+                        <td class="amount"><strong>£${ytdWages.toFixed(2)}</strong></td>
+                    </tr>
+                `;
+            }
+        }
+
+        function exportYearToCSV() {
+            const weeks = getSavedWeeks();
+            if (weeks.length === 0) {
+                alert('No weeks saved to export');
+                return;
+            }
+
+            let csv = 'Evergreen Holiday Camp - 2026 Year Summary\n\n';
+
+            // Weekly breakdown
+            csv += 'WEEKLY BREAKDOWN\n';
+            csv += 'Week Starting,Children,Revenue,Wages,Stripe Fees,Fixed Costs,Total Costs,Net Profit\n';
+
+            let totalRevenue = 0, totalWages = 0, totalProfit = 0, totalChildren = 0;
+
+            weeks.forEach(week => {
+                csv += `${week.weekStart},${week.summary.children || 0},`;
+                csv += `£${(week.summary.revenue || 0).toFixed(2)},`;
+                csv += `£${(week.summary.wages || 0).toFixed(2)},`;
+                csv += `£${(week.summary.stripeFees || 0).toFixed(2)},`;
+                csv += `£${(week.summary.fixedCosts || 0).toFixed(2)},`;
+                csv += `£${(week.summary.totalCosts || 0).toFixed(2)},`;
+                csv += `£${(week.summary.netProfit || 0).toFixed(2)}\n`;
+
+                totalRevenue += week.summary.revenue || 0;
+                totalWages += week.summary.wages || 0;
+                totalProfit += week.summary.netProfit || 0;
+                totalChildren += week.summary.children || 0;
+            });
+
+            csv += `TOTAL,${totalChildren},£${totalRevenue.toFixed(2)},£${totalWages.toFixed(2)},,,,£${totalProfit.toFixed(2)}\n`;
+
+            // Staff summary
+            csv += '\nSTAFF YEAR SUMMARY\n';
+            csv += 'Staff Name,Weeks Worked,Total Shifts,Total Earnings\n';
+
+            const staffYTD = {};
+            weeks.forEach(week => {
+                if (week.staffEarnings) {
+                    Object.entries(week.staffEarnings).forEach(([staffId, data]) => {
+                        if (!staffYTD[staffId]) {
+                            staffYTD[staffId] = { name: data.name, earnings: 0, shifts: 0, weeks: 0 };
+                        }
+                        staffYTD[staffId].earnings += data.earnings || 0;
+                        staffYTD[staffId].shifts += data.shifts || 0;
+                        staffYTD[staffId].weeks++;
+                    });
+                }
+            });
+
+            Object.values(staffYTD).forEach(s => {
+                csv += `"${s.name}",${s.weeks},${s.shifts},£${s.earnings.toFixed(2)}\n`;
+            });
+
+            // Download
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'evergreen-2026-year-summary.csv';
+            link.click();
         }
 
         // ============ FORECAST INPUTS ============
