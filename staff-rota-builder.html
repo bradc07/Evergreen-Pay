@@ -684,6 +684,35 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="card" style="margin-top: 20px; background: #fff8f8;">
+                    <h3 style="color: #c62828; margin-bottom: 12px;">Costs & Fees</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Stripe fee (%)</label>
+                            <input type="number" id="stripe-percent" value="2.9" step="0.1" onchange="calculateForecast(); saveData();">
+                            <span class="help-text">Usually 2.9% for UK cards</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Stripe fixed fee (£)</label>
+                            <input type="number" id="stripe-fixed" value="0.20" step="0.01" onchange="calculateForecast(); saveData();">
+                            <span class="help-text">Per transaction (usually £0.20)</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Unique children (transactions)</label>
+                            <input type="number" id="transactions" value="0" min="0" onchange="calculateForecast(); saveData();">
+                            <span class="help-text">Number of payments this week</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Fixed weekly costs (£)</label>
+                            <input type="number" id="fixed-weekly" value="0" step="0.01" onchange="calculateForecast(); saveData();">
+                            <span class="help-text">Venue, insurance, supplies, etc.</span>
+                        </div>
+                    </div>
+                    <div id="stripe-fee-preview" style="margin-top: 12px; padding: 12px; background: white; border-radius: 6px; font-size: 0.9rem;">
+                        Estimated Stripe fees: £0.00
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -691,20 +720,56 @@
         <div id="summary-tab" class="tab-content">
             <div class="summary-grid">
                 <div class="summary-card">
-                    <h3>Weekly Wage Bill</h3>
-                    <div class="amount" id="weekly-total">£0.00</div>
-                    <div class="detail" id="weekly-detail">0 staff shifts</div>
-                </div>
-                <div class="summary-card">
-                    <h3>Projected Revenue</h3>
+                    <h3>Gross Revenue</h3>
                     <div class="amount" id="weekly-revenue">£0.00</div>
                     <div class="detail" id="revenue-detail">0 children</div>
                 </div>
                 <div class="summary-card">
-                    <h3>Estimated Profit</h3>
-                    <div class="amount" id="weekly-profit">£0.00</div>
-                    <div class="detail" id="profit-detail">0% labour cost</div>
+                    <h3>Total Costs</h3>
+                    <div class="amount" id="weekly-costs" style="color: #c62828;">£0.00</div>
+                    <div class="detail" id="costs-detail">Wages + Fees + Fixed</div>
                 </div>
+                <div class="summary-card">
+                    <h3>Net Profit</h3>
+                    <div class="amount" id="weekly-profit">£0.00</div>
+                    <div class="detail" id="profit-detail">0% margin</div>
+                </div>
+            </div>
+
+            <!-- Financial Breakdown -->
+            <div class="card" style="margin-top: 24px;">
+                <h2>Financial Breakdown</h2>
+                <table class="earnings-table">
+                    <tbody>
+                        <tr>
+                            <td><strong>Gross Revenue</strong></td>
+                            <td class="amount" id="breakdown-gross">£0.00</td>
+                        </tr>
+                        <tr style="color: #c62828;">
+                            <td>Less: Stripe Fees (<span id="stripe-rate">2.9%</span> + £<span id="stripe-fixed-rate">0.20</span>/txn)</td>
+                            <td class="amount" id="breakdown-stripe">-£0.00</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Net Revenue</strong></td>
+                            <td class="amount" id="breakdown-net-revenue">£0.00</td>
+                        </tr>
+                        <tr style="background: #f5f5f5;">
+                            <td colspan="2" style="padding: 8px;"></td>
+                        </tr>
+                        <tr style="color: #c62828;">
+                            <td>Less: Staff Wages</td>
+                            <td class="amount" id="breakdown-wages">-£0.00</td>
+                        </tr>
+                        <tr style="color: #c62828;">
+                            <td>Less: Fixed Costs</td>
+                            <td class="amount" id="breakdown-fixed">-£0.00</td>
+                        </tr>
+                        <tr style="background: #e8f5e9; font-weight: bold;">
+                            <td><strong>Net Profit</strong></td>
+                            <td class="amount" id="breakdown-profit">£0.00</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
 
             <div class="card" style="margin-top: 24px;">
@@ -839,6 +904,12 @@
                 daily: 65,
                 early: 10,
                 late: 15
+            },
+            costs: {
+                stripePercent: 2.9,
+                stripeFixed: 0.20,
+                transactions: 0,      // Unique children paying this week
+                fixedWeekly: 0        // Venue, insurance, etc.
             }
         };
 
@@ -1202,19 +1273,52 @@
                 });
             });
 
-            // Update summary cards
-            document.getElementById('weekly-total').textContent = `£${weeklyWages.toFixed(2)}`;
-            document.getElementById('weekly-detail').textContent = `${totalShifts} staff shifts`;
+            // Calculate Stripe fees
+            const stripePercent = state.costs.stripePercent / 100;
+            const stripeFixed = state.costs.stripeFixed;
+            const transactions = state.costs.transactions;
+            const stripeFees = (weeklyRevenue * stripePercent) + (transactions * stripeFixed);
 
+            // Net revenue after Stripe
+            const netRevenue = weeklyRevenue - stripeFees;
+
+            // Fixed costs
+            const fixedCosts = state.costs.fixedWeekly;
+
+            // Total costs
+            const totalCosts = weeklyWages + stripeFees + fixedCosts;
+
+            // Net profit
+            const netProfit = weeklyRevenue - totalCosts;
+            const profitMargin = weeklyRevenue > 0 ? (netProfit / weeklyRevenue * 100) : 0;
+
+            // Update summary cards
             document.getElementById('weekly-revenue').textContent = `£${weeklyRevenue.toFixed(2)}`;
             document.getElementById('revenue-detail').textContent = `${totalChildren} children (week)`;
 
-            const profit = weeklyRevenue - weeklyWages;
-            const labourPercent = weeklyRevenue > 0 ? (weeklyWages / weeklyRevenue * 100) : 0;
+            document.getElementById('weekly-costs').textContent = `£${totalCosts.toFixed(2)}`;
+            document.getElementById('costs-detail').textContent = `Wages £${weeklyWages.toFixed(0)} + Fees £${stripeFees.toFixed(0)} + Fixed £${fixedCosts.toFixed(0)}`;
 
-            document.getElementById('weekly-profit').textContent = `£${profit.toFixed(2)}`;
-            document.getElementById('weekly-profit').style.color = profit >= 0 ? '#2d5a27' : '#c62828';
-            document.getElementById('profit-detail').textContent = `${labourPercent.toFixed(1)}% labour cost`;
+            document.getElementById('weekly-profit').textContent = `£${netProfit.toFixed(2)}`;
+            document.getElementById('weekly-profit').style.color = netProfit >= 0 ? '#2d5a27' : '#c62828';
+            document.getElementById('profit-detail').textContent = `${profitMargin.toFixed(1)}% margin`;
+
+            // Update financial breakdown
+            document.getElementById('stripe-rate').textContent = state.costs.stripePercent + '%';
+            document.getElementById('stripe-fixed-rate').textContent = state.costs.stripeFixed.toFixed(2);
+            document.getElementById('breakdown-gross').textContent = `£${weeklyRevenue.toFixed(2)}`;
+            document.getElementById('breakdown-stripe').textContent = `-£${stripeFees.toFixed(2)}`;
+            document.getElementById('breakdown-net-revenue').textContent = `£${netRevenue.toFixed(2)}`;
+            document.getElementById('breakdown-wages').textContent = `-£${weeklyWages.toFixed(2)}`;
+            document.getElementById('breakdown-fixed').textContent = `-£${fixedCosts.toFixed(2)}`;
+            document.getElementById('breakdown-profit').textContent = `£${netProfit.toFixed(2)}`;
+            document.getElementById('breakdown-profit').style.color = netProfit >= 0 ? '#2d5a27' : '#c62828';
+
+            // Update Stripe fee preview on forecast tab
+            const stripePreview = document.getElementById('stripe-fee-preview');
+            if (stripePreview) {
+                stripePreview.innerHTML = `<strong>Estimated Stripe fees:</strong> £${stripeFees.toFixed(2)} <span style="color: #888;">(${state.costs.stripePercent}% of £${weeklyRevenue.toFixed(2)} + ${transactions} × £${stripeFixed.toFixed(2)})</span>`;
+            }
 
             // Update daily breakdown
             const breakdownBody = document.getElementById('daily-breakdown-body');
@@ -1234,7 +1338,7 @@
                     <td class="amount">£${weeklyWages.toFixed(2)}</td>
                     <td>${totalChildren}</td>
                     <td class="amount">£${weeklyRevenue.toFixed(2)}</td>
-                    <td class="amount" style="color: ${profit >= 0 ? '#2d5a27' : '#c62828'}">£${profit.toFixed(2)}</td>
+                    <td class="amount" style="color: ${netProfit >= 0 ? '#2d5a27' : '#c62828'}">£${netProfit.toFixed(2)}</td>
                 </tr>
             `;
 
@@ -1317,6 +1421,12 @@
             document.getElementById('daily-rate').value = state.rates.daily;
             document.getElementById('early-rate').value = state.rates.early;
             document.getElementById('late-rate').value = state.rates.late;
+
+            // Load costs
+            document.getElementById('stripe-percent').value = state.costs.stripePercent;
+            document.getElementById('stripe-fixed').value = state.costs.stripeFixed;
+            document.getElementById('transactions').value = state.costs.transactions;
+            document.getElementById('fixed-weekly').value = state.costs.fixedWeekly;
         }
 
         // ============ LOCAL STORAGE ============
@@ -1327,12 +1437,19 @@
             state.rates.early = parseFloat(document.getElementById('early-rate')?.value) || 10;
             state.rates.late = parseFloat(document.getElementById('late-rate')?.value) || 15;
 
+            // Update costs from inputs
+            state.costs.stripePercent = parseFloat(document.getElementById('stripe-percent')?.value) || 2.9;
+            state.costs.stripeFixed = parseFloat(document.getElementById('stripe-fixed')?.value) || 0.20;
+            state.costs.transactions = parseInt(document.getElementById('transactions')?.value) || 0;
+            state.costs.fixedWeekly = parseFloat(document.getElementById('fixed-weekly')?.value) || 0;
+
             const data = {
                 staff: state.staff,
                 rota: state.rota,
                 weekStart: state.weekStart,
                 forecast: state.forecast,
-                rates: state.rates
+                rates: state.rates,
+                costs: state.costs
             };
             localStorage.setItem('evergreenRota', JSON.stringify(data));
         }
@@ -1347,6 +1464,7 @@
                     state.weekStart = data.weekStart || null;
                     state.forecast = data.forecast || state.forecast;
                     state.rates = data.rates || state.rates;
+                    state.costs = data.costs || state.costs;
                 }
             } catch (e) {
                 console.error('Error loading saved data:', e);
@@ -1413,6 +1531,22 @@
             });
 
             csv += `TOTAL,,£${weeklyWages.toFixed(2)},${totalChildren},£${weeklyRevenue.toFixed(2)},£${(weeklyRevenue - weeklyWages).toFixed(2)}\n`;
+
+            // Financial summary with fees
+            const stripePercent = state.costs.stripePercent / 100;
+            const stripeFees = (weeklyRevenue * stripePercent) + (state.costs.transactions * state.costs.stripeFixed);
+            const netRevenue = weeklyRevenue - stripeFees;
+            const totalCosts = weeklyWages + stripeFees + state.costs.fixedWeekly;
+            const netProfit = weeklyRevenue - totalCosts;
+
+            csv += '\nFINANCIAL SUMMARY\n';
+            csv += `Gross Revenue,£${weeklyRevenue.toFixed(2)}\n`;
+            csv += `Stripe Fees (${state.costs.stripePercent}% + £${state.costs.stripeFixed}/txn),-£${stripeFees.toFixed(2)}\n`;
+            csv += `Net Revenue,£${netRevenue.toFixed(2)}\n`;
+            csv += `Staff Wages,-£${weeklyWages.toFixed(2)}\n`;
+            csv += `Fixed Costs,-£${state.costs.fixedWeekly.toFixed(2)}\n`;
+            csv += `NET PROFIT,£${netProfit.toFixed(2)}\n`;
+            csv += `Profit Margin,${weeklyRevenue > 0 ? (netProfit / weeklyRevenue * 100).toFixed(1) : 0}%\n`;
 
             // Download
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
