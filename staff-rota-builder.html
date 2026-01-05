@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evergreen Staff Rota Builder</title>
+    <style>
+        /* ========================================
+           CSS STYLES
+           ======================================== */
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: linear-gradient(135deg, #2d5a27 0%, #4a7c43 100%);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        header .subtitle {
+            opacity: 0.9;
+            font-size: 0.95rem;
+            margin-top: 4px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .card h2 {
+            font-size: 1.2rem;
+            color: #2d5a27;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #e8f5e9;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #2d5a27;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1e3d1a;
+        }
+
+        .btn-secondary {
+            background: #e8f5e9;
+            color: #2d5a27;
+        }
+
+        .btn-secondary:hover {
+            background: #c8e6c9;
+        }
+
+        .btn-danger {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .btn-danger:hover {
+            background: #ffcdd2;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: #555;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #4a7c43;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        /* Staff List */
+        .staff-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .staff-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 18px;
+            background: #f8faf8;
+            border-radius: 8px;
+            border-left: 4px solid #4a7c43;
+        }
+
+        .staff-item .name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .staff-item .role {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .staff-item .rate {
+            font-size: 0.9rem;
+            color: #2d5a27;
+            font-weight: 500;
+        }
+
+        .staff-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Week Selector */
+        .week-selector {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .week-selector input[type="date"] {
+            padding: 10px 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.95rem;
+        }
+
+        .week-display {
+            font-weight: 500;
+            color: #555;
+        }
+
+        /* Rota Grid */
+        .rota-grid {
+            overflow-x: auto;
+        }
+
+        .rota-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+
+        .rota-table th,
+        .rota-table td {
+            padding: 12px;
+            text-align: center;
+            border: 1px solid #e0e0e0;
+        }
+
+        .rota-table th {
+            background: #2d5a27;
+            color: white;
+            font-weight: 500;
+        }
+
+        .rota-table th.day-header {
+            min-width: 120px;
+        }
+
+        .rota-table th.staff-header {
+            text-align: left;
+            min-width: 150px;
+        }
+
+        .rota-table td.staff-name {
+            text-align: left;
+            font-weight: 500;
+            background: #f8faf8;
+        }
+
+        .rota-table td.staff-name .role-tag {
+            font-size: 0.75rem;
+            color: #666;
+            font-weight: normal;
+        }
+
+        .rota-table select {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .rota-table select:focus {
+            outline: none;
+            border-color: #4a7c43;
+        }
+
+        /* Shift type colors */
+        .shift-full { background: #e8f5e9; }
+        .shift-early { background: #fff3e0; }
+        .shift-late { background: #e3f2fd; }
+        .shift-full-early { background: #f1f8e9; }
+        .shift-full-late { background: #e0f7fa; }
+        .shift-full-early-late { background: #fce4ec; }
+        .shift-off { background: #f5f5f5; }
+
+        /* Summary Cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .summary-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .summary-card h3 {
+            font-size: 1rem;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .summary-card .amount {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #2d5a27;
+        }
+
+        .summary-card .detail {
+            font-size: 0.85rem;
+            color: #888;
+            margin-top: 6px;
+        }
+
+        /* Daily Breakdown */
+        .daily-breakdown {
+            margin-top: 20px;
+        }
+
+        .daily-breakdown table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .daily-breakdown th,
+        .daily-breakdown td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .daily-breakdown th {
+            background: #f5f7fa;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .daily-breakdown .total-row {
+            font-weight: 700;
+            background: #e8f5e9;
+        }
+
+        .daily-breakdown .amount {
+            font-weight: 600;
+            color: #2d5a27;
+        }
+
+        /* Staff Earnings */
+        .earnings-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .earnings-table th,
+        .earnings-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .earnings-table th {
+            background: #f5f7fa;
+            font-weight: 600;
+        }
+
+        .earnings-table .amount {
+            font-weight: 600;
+            color: #2d5a27;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 24px;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: #e8f5e9;
+            border: none;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #2d5a27;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            background: white;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.08);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Forecast Section */
+        .forecast-inputs {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .forecast-day {
+            text-align: center;
+        }
+
+        .forecast-day label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #2d5a27;
+        }
+
+        .forecast-day input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 1rem;
+        }
+
+        .ratio-display {
+            margin-top: 10px;
+            padding: 8px;
+            background: #f8faf8;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+
+        .ratio-good { color: #2e7d32; }
+        .ratio-warning { color: #f57c00; }
+        .ratio-danger { color: #c62828; }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal h2 {
+            margin-bottom: 20px;
+            color: #2d5a27;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+            justify-content: flex-end;
+        }
+
+        /* Helper text */
+        .help-text {
+            font-size: 0.85rem;
+            color: #888;
+            margin-top: 4px;
+        }
+
+        /* Pay scale reference */
+        .pay-scale-ref {
+            background: #f8faf8;
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+
+        .pay-scale-ref h4 {
+            margin-bottom: 12px;
+            color: #2d5a27;
+        }
+
+        .pay-scale-ref table {
+            width: 100%;
+            font-size: 0.9rem;
+        }
+
+        .pay-scale-ref td {
+            padding: 6px 8px;
+        }
+
+        .pay-scale-ref .role-name {
+            font-weight: 500;
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            header, .tabs, .btn, .modal-overlay {
+                display: none !important;
+            }
+
+            .card {
+                box-shadow: none;
+                border: 1px solid #ddd;
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .forecast-inputs {
+                grid-template-columns: 1fr;
+            }
+
+            header {
+                flex-direction: column;
+                text-align: center;
+                gap: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div>
+                <h1>Evergreen Staff Rota Builder</h1>
+                <div class="subtitle">Children's Holiday Camp - Education, Sportsmanship & Coding</div>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="exportToCSV()">Export CSV</button>
+                <button class="btn btn-secondary" onclick="window.print()">Print</button>
+            </div>
+        </header>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('rota')">Rota Builder</button>
+            <button class="tab" onclick="switchTab('staff')">Staff</button>
+            <button class="tab" onclick="switchTab('forecast')">Forecast</button>
+            <button class="tab" onclick="switchTab('summary')">Summary</button>
+        </div>
+
+        <!-- Rota Tab -->
+        <div id="rota-tab" class="tab-content active">
+            <div class="card">
+                <h2>Weekly Rota</h2>
+
+                <div class="week-selector">
+                    <label><strong>Week starting:</strong></label>
+                    <input type="date" id="week-start" onchange="updateWeekDisplay()">
+                    <span class="week-display" id="week-display"></span>
+                </div>
+
+                <div class="rota-grid">
+                    <table class="rota-table" id="rota-table">
+                        <thead>
+                            <tr>
+                                <th class="staff-header">Staff Member</th>
+                                <th class="day-header">Monday</th>
+                                <th class="day-header">Tuesday</th>
+                                <th class="day-header">Wednesday</th>
+                                <th class="day-header">Thursday</th>
+                                <th class="day-header">Friday</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rota-body">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                        <tfoot>
+                            <tr id="daily-totals-row">
+                                <th style="text-align: left;">Daily Total</th>
+                                <th id="total-mon">£0.00</th>
+                                <th id="total-tue">£0.00</th>
+                                <th id="total-wed">£0.00</th>
+                                <th id="total-thu">£0.00</th>
+                                <th id="total-fri">£0.00</th>
+                            </tr>
+                            <tr id="staff-count-row">
+                                <th style="text-align: left;">Staff Count</th>
+                                <th id="count-mon">0</th>
+                                <th id="count-tue">0</th>
+                                <th id="count-wed">0</th>
+                                <th id="count-thu">0</th>
+                                <th id="count-fri">0</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <div class="pay-scale-ref">
+                    <h4>Pay Scale Reference (7.5 hour day)</h4>
+                    <table>
+                        <tr>
+                            <td class="role-name">Teacher</td>
+                            <td>Full: £140.00</td>
+                            <td>Early: £18.50</td>
+                            <td>Late: £27.75</td>
+                        </tr>
+                        <tr>
+                            <td class="role-name">Teaching Assistant</td>
+                            <td>Full: £101.25</td>
+                            <td>Early: £13.50</td>
+                            <td>Late: £20.25</td>
+                        </tr>
+                        <tr>
+                            <td class="role-name">Gap Student</td>
+                            <td>Full: £75.00</td>
+                            <td>Early: £10.00</td>
+                            <td>Late: £15.00</td>
+                        </tr>
+                        <tr>
+                            <td class="role-name">Brandon (Special)</td>
+                            <td>Full: £115.00</td>
+                            <td>Early: £15.33</td>
+                            <td>Late: £23.00</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Staff Tab -->
+        <div id="staff-tab" class="tab-content">
+            <div class="card">
+                <h2>Staff Members</h2>
+
+                <button class="btn btn-primary" onclick="openAddStaffModal()" style="margin-bottom: 20px;">
+                    + Add Staff Member
+                </button>
+
+                <div class="staff-list" id="staff-list">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Forecast Tab -->
+        <div id="forecast-tab" class="tab-content">
+            <div class="card">
+                <h2>Child Numbers & Ratios</h2>
+                <p class="help-text" style="margin-bottom: 20px;">
+                    Enter expected number of children per day. Recommended ratio for ages 4-8: 1 staff per 8 children.
+                </p>
+
+                <div class="forecast-inputs" id="forecast-inputs">
+                    <!-- Populated by JavaScript -->
+                </div>
+
+                <div class="card" style="margin-top: 20px; background: #f8faf8;">
+                    <h3 style="color: #2d5a27; margin-bottom: 12px;">Revenue Projection</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Daily rate per child (£)</label>
+                            <input type="number" id="daily-rate" value="65" onchange="calculateForecast(); saveData();">
+                        </div>
+                        <div class="form-group">
+                            <label>Early club rate (£)</label>
+                            <input type="number" id="early-rate" value="10" onchange="calculateForecast(); saveData();">
+                        </div>
+                        <div class="form-group">
+                            <label>Late club rate (£)</label>
+                            <input type="number" id="late-rate" value="15" onchange="calculateForecast(); saveData();">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Tab -->
+        <div id="summary-tab" class="tab-content">
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <h3>Weekly Wage Bill</h3>
+                    <div class="amount" id="weekly-total">£0.00</div>
+                    <div class="detail" id="weekly-detail">0 staff shifts</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Projected Revenue</h3>
+                    <div class="amount" id="weekly-revenue">£0.00</div>
+                    <div class="detail" id="revenue-detail">0 children</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Estimated Profit</h3>
+                    <div class="amount" id="weekly-profit">£0.00</div>
+                    <div class="detail" id="profit-detail">0% labour cost</div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 24px;">
+                <h2>Daily Breakdown</h2>
+                <div class="daily-breakdown">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Day</th>
+                                <th>Staff Count</th>
+                                <th>Wage Cost</th>
+                                <th>Children</th>
+                                <th>Revenue</th>
+                                <th>Profit</th>
+                            </tr>
+                        </thead>
+                        <tbody id="daily-breakdown-body">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Staff Earnings This Week</h2>
+                <table class="earnings-table">
+                    <thead>
+                        <tr>
+                            <th>Staff Member</th>
+                            <th>Role</th>
+                            <th>Shifts</th>
+                            <th>Total Earnings</th>
+                        </tr>
+                    </thead>
+                    <tbody id="earnings-body">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Staff Modal -->
+    <div class="modal-overlay" id="staff-modal">
+        <div class="modal">
+            <h2 id="modal-title">Add Staff Member</h2>
+            <form id="staff-form" onsubmit="saveStaff(event)">
+                <input type="hidden" id="staff-id">
+
+                <div class="form-group">
+                    <label>Name *</label>
+                    <input type="text" id="staff-name" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Role *</label>
+                    <select id="staff-role" onchange="toggleCustomRates()" required>
+                        <option value="teacher">Teacher</option>
+                        <option value="ta">Teaching Assistant</option>
+                        <option value="gap">Gap Student</option>
+                        <option value="custom">Custom Rate</option>
+                    </select>
+                </div>
+
+                <div id="custom-rates" style="display: none;">
+                    <div class="form-group">
+                        <label>Full Day Rate (£)</label>
+                        <input type="number" id="custom-full" step="0.01">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Early Rate (£)</label>
+                            <input type="number" id="custom-early" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label>Late Rate (£)</label>
+                            <input type="number" id="custom-late" step="0.01">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        /* ========================================
+           JAVASCRIPT - Staff Rota Builder
+           ======================================== */
+
+        // ============ DATA STRUCTURES ============
+
+        // Pay scales (7.5 hour standard day)
+        const PAY_SCALES = {
+            teacher: { full: 140.00, early: 18.50, late: 27.75, label: 'Teacher' },
+            ta: { full: 101.25, early: 13.50, late: 20.25, label: 'Teaching Assistant' },
+            gap: { full: 75.00, early: 10.00, late: 15.00, label: 'Gap Student' }
+        };
+
+        // Shift types and their components
+        const SHIFT_TYPES = {
+            'off': { label: 'Off', components: [] },
+            'full': { label: 'Full Day', components: ['full'] },
+            'early': { label: 'Early Only', components: ['early'] },
+            'late': { label: 'Late Only', components: ['late'] },
+            'full-early': { label: 'Full + Early', components: ['full', 'early'] },
+            'full-late': { label: 'Full + Late', components: ['full', 'late'] },
+            'full-early-late': { label: 'Full + Early + Late', components: ['full', 'early', 'late'] }
+        };
+
+        const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri'];
+        const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+        // ============ STATE ============
+
+        let state = {
+            staff: [],
+            rota: {},          // { staffId: { mon: 'full', tue: 'off', ... } }
+            weekStart: null,
+            forecast: {        // { mon: { children: 0, early: 0, late: 0 }, ... }
+                mon: { children: 0, early: 0, late: 0 },
+                tue: { children: 0, early: 0, late: 0 },
+                wed: { children: 0, early: 0, late: 0 },
+                thu: { children: 0, early: 0, late: 0 },
+                fri: { children: 0, early: 0, late: 0 }
+            },
+            rates: {
+                daily: 65,
+                early: 10,
+                late: 15
+            }
+        };
+
+        // ============ INITIALIZATION ============
+
+        function init() {
+            loadData();
+            setDefaultWeek();
+            renderStaffList();
+            renderRotaTable();
+            renderForecastInputs();
+            calculateAll();
+        }
+
+        function setDefaultWeek() {
+            const today = new Date();
+            const dayOfWeek = today.getDay();
+            const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Monday
+            const monday = new Date(today);
+            monday.setDate(today.getDate() + diff);
+
+            if (!state.weekStart) {
+                state.weekStart = monday.toISOString().split('T')[0];
+            }
+
+            document.getElementById('week-start').value = state.weekStart;
+            updateWeekDisplay();
+        }
+
+        function updateWeekDisplay() {
+            const weekStart = new Date(document.getElementById('week-start').value);
+            state.weekStart = document.getElementById('week-start').value;
+
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 4);
+
+            const options = { day: 'numeric', month: 'short' };
+            const startStr = weekStart.toLocaleDateString('en-GB', options);
+            const endStr = weekEnd.toLocaleDateString('en-GB', options);
+
+            document.getElementById('week-display').textContent = `${startStr} - ${endStr}`;
+            saveData();
+        }
+
+        // ============ TABS ============
+
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(tabName + '-tab').classList.add('active');
+
+            // Recalculate when switching to summary
+            if (tabName === 'summary') {
+                calculateAll();
+            }
+        }
+
+        // ============ STAFF MANAGEMENT ============
+
+        function renderStaffList() {
+            const container = document.getElementById('staff-list');
+
+            if (state.staff.length === 0) {
+                container.innerHTML = '<p style="color: #888; text-align: center; padding: 40px;">No staff members yet. Click "Add Staff Member" to get started.</p>';
+                return;
+            }
+
+            container.innerHTML = state.staff.map(staff => {
+                const rates = getStaffRates(staff);
+                return `
+                    <div class="staff-item">
+                        <div>
+                            <div class="name">${staff.name}</div>
+                            <div class="role">${staff.role === 'custom' ? 'Custom Rate' : PAY_SCALES[staff.role].label}</div>
+                        </div>
+                        <div class="rate">£${rates.full.toFixed(2)}/day</div>
+                        <div class="staff-actions">
+                            <button class="btn btn-secondary btn-small" onclick="editStaff('${staff.id}')">Edit</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteStaff('${staff.id}')">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getStaffRates(staff) {
+            if (staff.role === 'custom') {
+                return {
+                    full: staff.customRates.full || 0,
+                    early: staff.customRates.early || 0,
+                    late: staff.customRates.late || 0
+                };
+            }
+            return PAY_SCALES[staff.role];
+        }
+
+        function openAddStaffModal() {
+            document.getElementById('modal-title').textContent = 'Add Staff Member';
+            document.getElementById('staff-id').value = '';
+            document.getElementById('staff-name').value = '';
+            document.getElementById('staff-role').value = 'teacher';
+            document.getElementById('custom-full').value = '';
+            document.getElementById('custom-early').value = '';
+            document.getElementById('custom-late').value = '';
+            toggleCustomRates();
+            document.getElementById('staff-modal').classList.add('active');
+        }
+
+        function editStaff(id) {
+            const staff = state.staff.find(s => s.id === id);
+            if (!staff) return;
+
+            document.getElementById('modal-title').textContent = 'Edit Staff Member';
+            document.getElementById('staff-id').value = staff.id;
+            document.getElementById('staff-name').value = staff.name;
+            document.getElementById('staff-role').value = staff.role;
+
+            if (staff.role === 'custom') {
+                document.getElementById('custom-full').value = staff.customRates.full || '';
+                document.getElementById('custom-early').value = staff.customRates.early || '';
+                document.getElementById('custom-late').value = staff.customRates.late || '';
+            }
+
+            toggleCustomRates();
+            document.getElementById('staff-modal').classList.add('active');
+        }
+
+        function deleteStaff(id) {
+            if (!confirm('Are you sure you want to remove this staff member?')) return;
+
+            state.staff = state.staff.filter(s => s.id !== id);
+            delete state.rota[id];
+
+            saveData();
+            renderStaffList();
+            renderRotaTable();
+            calculateAll();
+        }
+
+        function saveStaff(event) {
+            event.preventDefault();
+
+            const id = document.getElementById('staff-id').value || 'staff_' + Date.now();
+            const name = document.getElementById('staff-name').value.trim();
+            const role = document.getElementById('staff-role').value;
+
+            const staffData = { id, name, role };
+
+            if (role === 'custom') {
+                staffData.customRates = {
+                    full: parseFloat(document.getElementById('custom-full').value) || 0,
+                    early: parseFloat(document.getElementById('custom-early').value) || 0,
+                    late: parseFloat(document.getElementById('custom-late').value) || 0
+                };
+            }
+
+            const existingIndex = state.staff.findIndex(s => s.id === id);
+            if (existingIndex >= 0) {
+                state.staff[existingIndex] = staffData;
+            } else {
+                state.staff.push(staffData);
+                // Initialize rota for new staff
+                state.rota[id] = { mon: 'off', tue: 'off', wed: 'off', thu: 'off', fri: 'off' };
+            }
+
+            closeModal();
+            saveData();
+            renderStaffList();
+            renderRotaTable();
+            calculateAll();
+        }
+
+        function toggleCustomRates() {
+            const role = document.getElementById('staff-role').value;
+            document.getElementById('custom-rates').style.display = role === 'custom' ? 'block' : 'none';
+        }
+
+        function closeModal() {
+            document.getElementById('staff-modal').classList.remove('active');
+        }
+
+        // ============ ROTA TABLE ============
+
+        function renderRotaTable() {
+            const tbody = document.getElementById('rota-body');
+
+            if (state.staff.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888; padding: 40px;">Add staff members to start building your rota</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = state.staff.map(staff => {
+                const rates = getStaffRates(staff);
+                const roleLabel = staff.role === 'custom' ? 'Custom' : PAY_SCALES[staff.role].label;
+
+                return `
+                    <tr>
+                        <td class="staff-name">
+                            ${staff.name}
+                            <div class="role-tag">${roleLabel}</div>
+                        </td>
+                        ${DAYS.map(day => {
+                            const shift = state.rota[staff.id]?.[day] || 'off';
+                            return `
+                                <td class="shift-${shift}">
+                                    <select onchange="updateShift('${staff.id}', '${day}', this.value)">
+                                        ${Object.entries(SHIFT_TYPES).map(([key, val]) =>
+                                            `<option value="${key}" ${shift === key ? 'selected' : ''}>${val.label}</option>`
+                                        ).join('')}
+                                    </select>
+                                </td>
+                            `;
+                        }).join('')}
+                    </tr>
+                `;
+            }).join('');
+
+            calculateDailyTotals();
+        }
+
+        function updateShift(staffId, day, shift) {
+            if (!state.rota[staffId]) {
+                state.rota[staffId] = {};
+            }
+            state.rota[staffId][day] = shift;
+
+            // Update cell class
+            const cells = document.querySelectorAll(`#rota-body tr`);
+            cells.forEach(row => {
+                const select = row.querySelector(`select[onchange*="${staffId}"][onchange*="${day}"]`);
+                if (select) {
+                    select.parentElement.className = `shift-${shift}`;
+                }
+            });
+
+            saveData();
+            calculateDailyTotals();
+            calculateForecast();
+        }
+
+        // ============ CALCULATIONS ============
+
+        function calculateShiftCost(staff, shiftType) {
+            const rates = getStaffRates(staff);
+            const shift = SHIFT_TYPES[shiftType];
+
+            if (!shift) return 0;
+
+            return shift.components.reduce((total, component) => {
+                return total + (rates[component] || 0);
+            }, 0);
+        }
+
+        function calculateDailyTotals() {
+            DAYS.forEach((day, i) => {
+                let total = 0;
+                let count = 0;
+
+                state.staff.forEach(staff => {
+                    const shift = state.rota[staff.id]?.[day] || 'off';
+                    if (shift !== 'off') {
+                        total += calculateShiftCost(staff, shift);
+                        count++;
+                    }
+                });
+
+                document.getElementById(`total-${day}`).textContent = `£${total.toFixed(2)}`;
+                document.getElementById(`count-${day}`).textContent = count;
+            });
+        }
+
+        function calculateForecast() {
+            DAYS.forEach(day => {
+                const childrenInput = document.getElementById(`forecast-children-${day}`);
+                const earlyInput = document.getElementById(`forecast-early-${day}`);
+                const lateInput = document.getElementById(`forecast-late-${day}`);
+
+                if (childrenInput) {
+                    state.forecast[day].children = parseInt(childrenInput.value) || 0;
+                    state.forecast[day].early = parseInt(earlyInput?.value) || 0;
+                    state.forecast[day].late = parseInt(lateInput?.value) || 0;
+                }
+
+                // Calculate and display ratio
+                const staffCount = state.staff.filter(s =>
+                    (state.rota[s.id]?.[day] || 'off') !== 'off' &&
+                    (state.rota[s.id]?.[day] || 'off') !== 'early' &&
+                    (state.rota[s.id]?.[day] || 'off') !== 'late'
+                ).length;
+
+                const children = state.forecast[day].children;
+                const ratioDisplay = document.getElementById(`ratio-${day}`);
+
+                if (ratioDisplay) {
+                    if (children === 0) {
+                        ratioDisplay.textContent = 'No children entered';
+                        ratioDisplay.className = 'ratio-display';
+                    } else if (staffCount === 0) {
+                        ratioDisplay.textContent = 'No staff scheduled';
+                        ratioDisplay.className = 'ratio-display ratio-danger';
+                    } else {
+                        const ratio = children / staffCount;
+                        let ratioClass = 'ratio-good';
+                        if (ratio > 10) ratioClass = 'ratio-danger';
+                        else if (ratio > 8) ratioClass = 'ratio-warning';
+
+                        ratioDisplay.textContent = `1:${ratio.toFixed(1)} (${staffCount} staff for ${children} children)`;
+                        ratioDisplay.className = `ratio-display ${ratioClass}`;
+                    }
+                }
+            });
+
+            saveData();
+            calculateSummary();
+        }
+
+        function calculateSummary() {
+            let weeklyWages = 0;
+            let weeklyRevenue = 0;
+            let totalShifts = 0;
+            let totalChildren = 0;
+
+            const dailyData = [];
+
+            DAYS.forEach((day, i) => {
+                let dayWages = 0;
+                let dayStaffCount = 0;
+
+                state.staff.forEach(staff => {
+                    const shift = state.rota[staff.id]?.[day] || 'off';
+                    if (shift !== 'off') {
+                        dayWages += calculateShiftCost(staff, shift);
+                        dayStaffCount++;
+                        totalShifts++;
+                    }
+                });
+
+                const children = state.forecast[day].children || 0;
+                const earlyChildren = state.forecast[day].early || 0;
+                const lateChildren = state.forecast[day].late || 0;
+
+                const dayRevenue = (children * state.rates.daily) +
+                                   (earlyChildren * state.rates.early) +
+                                   (lateChildren * state.rates.late);
+
+                weeklyWages += dayWages;
+                weeklyRevenue += dayRevenue;
+                totalChildren += children;
+
+                dailyData.push({
+                    day: DAY_NAMES[i],
+                    staffCount: dayStaffCount,
+                    wages: dayWages,
+                    children: children,
+                    revenue: dayRevenue,
+                    profit: dayRevenue - dayWages
+                });
+            });
+
+            // Update summary cards
+            document.getElementById('weekly-total').textContent = `£${weeklyWages.toFixed(2)}`;
+            document.getElementById('weekly-detail').textContent = `${totalShifts} staff shifts`;
+
+            document.getElementById('weekly-revenue').textContent = `£${weeklyRevenue.toFixed(2)}`;
+            document.getElementById('revenue-detail').textContent = `${totalChildren} children (week)`;
+
+            const profit = weeklyRevenue - weeklyWages;
+            const labourPercent = weeklyRevenue > 0 ? (weeklyWages / weeklyRevenue * 100) : 0;
+
+            document.getElementById('weekly-profit').textContent = `£${profit.toFixed(2)}`;
+            document.getElementById('weekly-profit').style.color = profit >= 0 ? '#2d5a27' : '#c62828';
+            document.getElementById('profit-detail').textContent = `${labourPercent.toFixed(1)}% labour cost`;
+
+            // Update daily breakdown
+            const breakdownBody = document.getElementById('daily-breakdown-body');
+            breakdownBody.innerHTML = dailyData.map(d => `
+                <tr>
+                    <td>${d.day}</td>
+                    <td>${d.staffCount}</td>
+                    <td class="amount">£${d.wages.toFixed(2)}</td>
+                    <td>${d.children}</td>
+                    <td class="amount">£${d.revenue.toFixed(2)}</td>
+                    <td class="amount" style="color: ${d.profit >= 0 ? '#2d5a27' : '#c62828'}">£${d.profit.toFixed(2)}</td>
+                </tr>
+            `).join('') + `
+                <tr class="total-row">
+                    <td><strong>TOTAL</strong></td>
+                    <td></td>
+                    <td class="amount">£${weeklyWages.toFixed(2)}</td>
+                    <td>${totalChildren}</td>
+                    <td class="amount">£${weeklyRevenue.toFixed(2)}</td>
+                    <td class="amount" style="color: ${profit >= 0 ? '#2d5a27' : '#c62828'}">£${profit.toFixed(2)}</td>
+                </tr>
+            `;
+
+            // Update staff earnings
+            calculateStaffEarnings();
+        }
+
+        function calculateStaffEarnings() {
+            const earningsBody = document.getElementById('earnings-body');
+
+            const earnings = state.staff.map(staff => {
+                let total = 0;
+                let shifts = [];
+
+                DAYS.forEach((day, i) => {
+                    const shift = state.rota[staff.id]?.[day] || 'off';
+                    if (shift !== 'off') {
+                        total += calculateShiftCost(staff, shift);
+                        shifts.push(DAY_NAMES[i].substring(0, 3));
+                    }
+                });
+
+                return {
+                    name: staff.name,
+                    role: staff.role === 'custom' ? 'Custom' : PAY_SCALES[staff.role].label,
+                    shifts: shifts.join(', ') || '-',
+                    total: total
+                };
+            });
+
+            earningsBody.innerHTML = earnings.map(e => `
+                <tr>
+                    <td>${e.name}</td>
+                    <td>${e.role}</td>
+                    <td>${e.shifts}</td>
+                    <td class="amount">£${e.total.toFixed(2)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function calculateAll() {
+            calculateDailyTotals();
+            calculateForecast();
+            calculateSummary();
+        }
+
+        // ============ FORECAST INPUTS ============
+
+        function renderForecastInputs() {
+            const container = document.getElementById('forecast-inputs');
+
+            container.innerHTML = DAYS.map((day, i) => `
+                <div class="forecast-day">
+                    <label>${DAY_NAMES[i]}</label>
+                    <input type="number"
+                           id="forecast-children-${day}"
+                           placeholder="Children"
+                           min="0"
+                           value="${state.forecast[day]?.children || ''}"
+                           onchange="calculateForecast()">
+                    <input type="number"
+                           id="forecast-early-${day}"
+                           placeholder="Early club"
+                           min="0"
+                           value="${state.forecast[day]?.early || ''}"
+                           onchange="calculateForecast()"
+                           style="margin-top: 8px;">
+                    <input type="number"
+                           id="forecast-late-${day}"
+                           placeholder="Late club"
+                           min="0"
+                           value="${state.forecast[day]?.late || ''}"
+                           onchange="calculateForecast()"
+                           style="margin-top: 8px;">
+                    <div class="ratio-display" id="ratio-${day}">Enter children count</div>
+                </div>
+            `).join('');
+
+            // Load rates
+            document.getElementById('daily-rate').value = state.rates.daily;
+            document.getElementById('early-rate').value = state.rates.early;
+            document.getElementById('late-rate').value = state.rates.late;
+        }
+
+        // ============ LOCAL STORAGE ============
+
+        function saveData() {
+            // Update rates from inputs
+            state.rates.daily = parseFloat(document.getElementById('daily-rate')?.value) || 65;
+            state.rates.early = parseFloat(document.getElementById('early-rate')?.value) || 10;
+            state.rates.late = parseFloat(document.getElementById('late-rate')?.value) || 15;
+
+            const data = {
+                staff: state.staff,
+                rota: state.rota,
+                weekStart: state.weekStart,
+                forecast: state.forecast,
+                rates: state.rates
+            };
+            localStorage.setItem('evergreenRota', JSON.stringify(data));
+        }
+
+        function loadData() {
+            try {
+                const saved = localStorage.getItem('evergreenRota');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    state.staff = data.staff || [];
+                    state.rota = data.rota || {};
+                    state.weekStart = data.weekStart || null;
+                    state.forecast = data.forecast || state.forecast;
+                    state.rates = data.rates || state.rates;
+                }
+            } catch (e) {
+                console.error('Error loading saved data:', e);
+            }
+        }
+
+        // ============ CSV EXPORT ============
+
+        function exportToCSV() {
+            const weekStart = new Date(state.weekStart);
+            const weekStr = weekStart.toLocaleDateString('en-GB').replace(/\//g, '-');
+
+            // Build CSV content
+            let csv = 'Evergreen Staff Rota - Week of ' + weekStr + '\n\n';
+
+            // Staff rota
+            csv += 'ROTA\n';
+            csv += 'Staff Name,Role,Monday,Tuesday,Wednesday,Thursday,Friday,Weekly Earnings\n';
+
+            state.staff.forEach(staff => {
+                const role = staff.role === 'custom' ? 'Custom' : PAY_SCALES[staff.role].label;
+                let weeklyTotal = 0;
+                const shifts = DAYS.map(day => {
+                    const shift = state.rota[staff.id]?.[day] || 'off';
+                    weeklyTotal += calculateShiftCost(staff, shift);
+                    return SHIFT_TYPES[shift].label;
+                });
+                csv += `"${staff.name}","${role}",${shifts.join(',')},£${weeklyTotal.toFixed(2)}\n`;
+            });
+
+            // Daily totals
+            csv += '\nDAILY SUMMARY\n';
+            csv += 'Day,Staff Count,Wage Cost,Children,Revenue,Profit\n';
+
+            let weeklyWages = 0;
+            let weeklyRevenue = 0;
+            let totalChildren = 0;
+
+            DAYS.forEach((day, i) => {
+                let dayWages = 0;
+                let dayStaffCount = 0;
+
+                state.staff.forEach(staff => {
+                    const shift = state.rota[staff.id]?.[day] || 'off';
+                    if (shift !== 'off') {
+                        dayWages += calculateShiftCost(staff, shift);
+                        dayStaffCount++;
+                    }
+                });
+
+                const children = state.forecast[day].children || 0;
+                const earlyChildren = state.forecast[day].early || 0;
+                const lateChildren = state.forecast[day].late || 0;
+                const dayRevenue = (children * state.rates.daily) +
+                                   (earlyChildren * state.rates.early) +
+                                   (lateChildren * state.rates.late);
+                const profit = dayRevenue - dayWages;
+
+                weeklyWages += dayWages;
+                weeklyRevenue += dayRevenue;
+                totalChildren += children;
+
+                csv += `${DAY_NAMES[i]},${dayStaffCount},£${dayWages.toFixed(2)},${children},£${dayRevenue.toFixed(2)},£${profit.toFixed(2)}\n`;
+            });
+
+            csv += `TOTAL,,£${weeklyWages.toFixed(2)},${totalChildren},£${weeklyRevenue.toFixed(2)},£${(weeklyRevenue - weeklyWages).toFixed(2)}\n`;
+
+            // Download
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `evergreen-rota-${weekStr}.csv`;
+            link.click();
+        }
+
+        // ============ START ============
+
+        document.addEventListener('DOMContentLoaded', init);
+
+        // Close modal on outside click
+        document.getElementById('staff-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+    </script>
+</body>
+</html>
