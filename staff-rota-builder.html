@@ -570,6 +570,8 @@
                     <label><strong>Week starting:</strong></label>
                     <input type="date" id="week-start" onchange="updateWeekDisplay()">
                     <span class="week-display" id="week-display"></span>
+                    <button class="btn btn-secondary btn-small" onclick="copyWeekToNext()" style="margin-left: auto;">Copy to Next Week</button>
+                    <button class="btn btn-danger btn-small" onclick="clearWeek()">Clear Week</button>
                 </div>
 
                 <div class="rota-grid">
@@ -659,6 +661,18 @@
         <div id="forecast-tab" class="tab-content">
             <div class="card">
                 <h2>Child Numbers & Ratios</h2>
+
+                <div class="form-row" style="margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label>Soft Capacity (preferred max)</label>
+                        <input type="number" id="capacity-soft" value="55" min="1" onchange="calculateForecast(); saveData();">
+                    </div>
+                    <div class="form-group">
+                        <label>Hard Capacity (absolute max)</label>
+                        <input type="number" id="capacity-hard" value="60" min="1" onchange="calculateForecast(); saveData();">
+                    </div>
+                </div>
+
                 <p class="help-text" style="margin-bottom: 20px;">
                     Enter expected number of children per day. Recommended ratio for ages 4-8: 1 staff per 8 children.
                 </p>
@@ -733,6 +747,11 @@
                     <h3>Net Profit</h3>
                     <div class="amount" id="weekly-profit">£0.00</div>
                     <div class="detail" id="profit-detail">0% margin</div>
+                </div>
+                <div class="summary-card" style="background: #fff8e1; border: 2px solid #ffb300;">
+                    <h3>Break-Even Point</h3>
+                    <div class="amount" id="break-even" style="color: #f57c00;">0</div>
+                    <div class="detail" id="break-even-detail">children/day to cover costs</div>
                 </div>
             </div>
 
@@ -851,6 +870,28 @@
                     </div>
                 </div>
 
+                <div class="form-group">
+                    <label>Availability</label>
+                    <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px;">
+                        <label style="display: flex; align-items: center; gap: 6px; font-weight: normal;">
+                            <input type="checkbox" id="avail-mon" checked> Mon
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; font-weight: normal;">
+                            <input type="checkbox" id="avail-tue" checked> Tue
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; font-weight: normal;">
+                            <input type="checkbox" id="avail-wed" checked> Wed
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; font-weight: normal;">
+                            <input type="checkbox" id="avail-thu" checked> Thu
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; font-weight: normal;">
+                            <input type="checkbox" id="avail-fri" checked> Fri
+                        </label>
+                    </div>
+                    <span class="help-text">Uncheck days this person can't work</span>
+                </div>
+
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
                     <button type="submit" class="btn btn-primary">Save</button>
@@ -909,7 +950,11 @@
                 stripePercent: 2.9,
                 stripeFixed: 0.20,
                 transactions: 0,      // Unique children paying this week
-                fixedWeekly: 0        // Venue, insurance, etc.
+                fixedWeekly: 1900     // Venue, insurance, etc. (default: £1900/week)
+            },
+            capacity: {
+                soft: 55,             // Preferred max
+                hard: 60              // Absolute max
             }
         };
 
@@ -1018,6 +1063,10 @@
             document.getElementById('custom-full').value = '';
             document.getElementById('custom-early').value = '';
             document.getElementById('custom-late').value = '';
+            // Reset availability to all checked
+            DAYS.forEach(day => {
+                document.getElementById(`avail-${day}`).checked = true;
+            });
             toggleCustomRates();
             document.getElementById('staff-modal').classList.add('active');
         }
@@ -1036,6 +1085,12 @@
                 document.getElementById('custom-early').value = staff.customRates.early || '';
                 document.getElementById('custom-late').value = staff.customRates.late || '';
             }
+
+            // Load availability
+            DAYS.forEach(day => {
+                const available = staff.availability ? staff.availability[day] !== false : true;
+                document.getElementById(`avail-${day}`).checked = available;
+            });
 
             toggleCustomRates();
             document.getElementById('staff-modal').classList.add('active');
@@ -1069,6 +1124,12 @@
                     late: parseFloat(document.getElementById('custom-late').value) || 0
                 };
             }
+
+            // Save availability
+            staffData.availability = {};
+            DAYS.forEach(day => {
+                staffData.availability[day] = document.getElementById(`avail-${day}`).checked;
+            });
 
             const existingIndex = state.staff.findIndex(s => s.id === id);
             if (existingIndex >= 0) {
@@ -1117,13 +1178,16 @@
                         </td>
                         ${DAYS.map(day => {
                             const shift = state.rota[staff.id]?.[day] || 'off';
+                            const available = staff.availability ? staff.availability[day] !== false : true;
+                            const unavailableWarning = !available && shift !== 'off';
                             return `
-                                <td class="shift-${shift}">
-                                    <select onchange="updateShift('${staff.id}', '${day}', this.value)">
+                                <td class="shift-${shift}" style="${unavailableWarning ? 'border: 3px solid #c62828;' : ''}${!available ? 'opacity: 0.6;' : ''}">
+                                    <select onchange="updateShift('${staff.id}', '${day}', this.value)" ${!available ? 'style="background: #ffebee;"' : ''}>
                                         ${Object.entries(SHIFT_TYPES).map(([key, val]) =>
                                             `<option value="${key}" ${shift === key ? 'selected' : ''}>${val.label}</option>`
                                         ).join('')}
                                     </select>
+                                    ${!available ? '<div style="font-size: 0.7rem; color: #c62828; margin-top: 4px;">Not available</div>' : ''}
                                 </td>
                             `;
                         }).join('')}
@@ -1220,7 +1284,15 @@
                         if (ratio > 10) ratioClass = 'ratio-danger';
                         else if (ratio > 8) ratioClass = 'ratio-warning';
 
-                        ratioDisplay.textContent = `1:${ratio.toFixed(1)} (${staffCount} staff for ${children} children)`;
+                        let capacityWarning = '';
+                        if (children > state.capacity.hard) {
+                            capacityWarning = ` <strong style="color: #c62828;">OVER CAPACITY!</strong>`;
+                            ratioClass = 'ratio-danger';
+                        } else if (children > state.capacity.soft) {
+                            capacityWarning = ` <span style="color: #f57c00;">(${state.capacity.hard - children} spots left)</span>`;
+                        }
+
+                        ratioDisplay.innerHTML = `1:${ratio.toFixed(1)} (${staffCount} staff for ${children} children)${capacityWarning}`;
                         ratioDisplay.className = `ratio-display ${ratioClass}`;
                     }
                 }
@@ -1302,6 +1374,18 @@
             document.getElementById('weekly-profit').textContent = `£${netProfit.toFixed(2)}`;
             document.getElementById('weekly-profit').style.color = netProfit >= 0 ? '#2d5a27' : '#c62828';
             document.getElementById('profit-detail').textContent = `${profitMargin.toFixed(1)}% margin`;
+
+            // Calculate break-even (how many children per day needed to cover costs)
+            // Total costs = wages + stripe fees + fixed
+            // Revenue per child per day = daily rate (ignoring early/late for simplicity)
+            // Net revenue per child = daily rate - (daily rate * stripe %)
+            const netRevenuePerChild = state.rates.daily * (1 - stripePercent);
+            const totalFixedCosts = weeklyWages + fixedCosts + (state.costs.transactions * stripeFixed);
+            const breakEvenTotal = netRevenuePerChild > 0 ? totalFixedCosts / netRevenuePerChild : 0;
+            const breakEvenPerDay = breakEvenTotal / 5;
+
+            document.getElementById('break-even').textContent = Math.ceil(breakEvenPerDay);
+            document.getElementById('break-even-detail').textContent = `children/day avg to cover £${totalFixedCosts.toFixed(0)} costs`;
 
             // Update financial breakdown
             document.getElementById('stripe-rate').textContent = state.costs.stripePercent + '%';
@@ -1385,6 +1469,54 @@
             calculateSummary();
         }
 
+        // ============ WEEK ACTIONS ============
+
+        function copyWeekToNext() {
+            // Save current week's data
+            const currentWeekKey = `rota_${state.weekStart}`;
+            const currentData = {
+                rota: JSON.parse(JSON.stringify(state.rota)),
+                forecast: JSON.parse(JSON.stringify(state.forecast))
+            };
+            localStorage.setItem(currentWeekKey, JSON.stringify(currentData));
+
+            // Move to next week
+            const currentDate = new Date(state.weekStart);
+            currentDate.setDate(currentDate.getDate() + 7);
+            state.weekStart = currentDate.toISOString().split('T')[0];
+
+            // Update the date picker
+            document.getElementById('week-start').value = state.weekStart;
+            updateWeekDisplay();
+
+            // Keep the same rota and forecast (already in state)
+            saveData();
+            renderRotaTable();
+            renderForecastInputs();
+            calculateAll();
+
+            alert('Rota copied to next week: ' + state.weekStart);
+        }
+
+        function clearWeek() {
+            if (!confirm('Clear all shifts for this week? Staff will remain.')) return;
+
+            // Reset all shifts to 'off'
+            state.staff.forEach(staff => {
+                state.rota[staff.id] = { mon: 'off', tue: 'off', wed: 'off', thu: 'off', fri: 'off' };
+            });
+
+            // Reset forecast
+            DAYS.forEach(day => {
+                state.forecast[day] = { children: 0, early: 0, late: 0 };
+            });
+
+            saveData();
+            renderRotaTable();
+            renderForecastInputs();
+            calculateAll();
+        }
+
         // ============ FORECAST INPUTS ============
 
         function renderForecastInputs() {
@@ -1427,6 +1559,10 @@
             document.getElementById('stripe-fixed').value = state.costs.stripeFixed;
             document.getElementById('transactions').value = state.costs.transactions;
             document.getElementById('fixed-weekly').value = state.costs.fixedWeekly;
+
+            // Load capacity
+            document.getElementById('capacity-soft').value = state.capacity.soft;
+            document.getElementById('capacity-hard').value = state.capacity.hard;
         }
 
         // ============ LOCAL STORAGE ============
@@ -1441,7 +1577,11 @@
             state.costs.stripePercent = parseFloat(document.getElementById('stripe-percent')?.value) || 2.9;
             state.costs.stripeFixed = parseFloat(document.getElementById('stripe-fixed')?.value) || 0.20;
             state.costs.transactions = parseInt(document.getElementById('transactions')?.value) || 0;
-            state.costs.fixedWeekly = parseFloat(document.getElementById('fixed-weekly')?.value) || 0;
+            state.costs.fixedWeekly = parseFloat(document.getElementById('fixed-weekly')?.value) || 1900;
+
+            // Update capacity from inputs
+            state.capacity.soft = parseInt(document.getElementById('capacity-soft')?.value) || 55;
+            state.capacity.hard = parseInt(document.getElementById('capacity-hard')?.value) || 60;
 
             const data = {
                 staff: state.staff,
@@ -1449,7 +1589,8 @@
                 weekStart: state.weekStart,
                 forecast: state.forecast,
                 rates: state.rates,
-                costs: state.costs
+                costs: state.costs,
+                capacity: state.capacity
             };
             localStorage.setItem('evergreenRota', JSON.stringify(data));
         }
@@ -1465,6 +1606,7 @@
                     state.forecast = data.forecast || state.forecast;
                     state.rates = data.rates || state.rates;
                     state.costs = data.costs || state.costs;
+                    state.capacity = data.capacity || state.capacity;
                 }
             } catch (e) {
                 console.error('Error loading saved data:', e);
